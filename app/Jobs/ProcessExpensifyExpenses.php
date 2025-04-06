@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\ExpensifyLogin;
 use App\Services\ExpensifyService;
+use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Bus\Queueable;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -11,7 +12,7 @@ use Illuminate\Queue\SerializesModels;
 use Spatie\SlashCommand\Jobs\SlashCommandResponseJob;
 use Spatie\SlashCommand\Request;
 
-class ProcessExpensifyCategories extends SlashCommandResponseJob
+class ProcessExpensifyExpenses extends SlashCommandResponseJob
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
@@ -23,21 +24,21 @@ class ProcessExpensifyCategories extends SlashCommandResponseJob
         $this->request = $request;
     }
 
+    /**
+     * @throws GuzzleException
+     */
     public function handle(): void
     {
         $expensifyService = app(ExpensifyService::class);
 
-        $categories = $expensifyService->getAvailableCategories($this->login);
+        $expenses = $expensifyService->getSpentAmountsByCategories($this->login);
 
-        if (empty($categories)) {
-            $this->respondToSlack("No categories found for your Expensify account.")->send();
+        if (empty($expenses)) {
+            $this->respondToSlack("No expenses found for your Expensify account. 🤯")->send();
             return;
         }
 
-        $message = "🔖 Here are your available categories:\n";
-        foreach ($categories as $category) {
-            $message .= "• {$category}\n";
-        }
+        $message = "💰 Here are your expenses by category:\n";
 
         $this->respondToSlack($message)->send();
     }

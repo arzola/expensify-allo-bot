@@ -14,8 +14,7 @@ return new class extends Migration
         Schema::create('allowance_categories', function (Blueprint $table) {
             $table->id();
             $table->string('name');
-            $table->string('expensify_category');
-            $table->decimal('monthly_limit', 10, 2);
+            $table->decimal('annual_limit', 10, 2);
             $table->text('description')->nullable();
             $table->boolean('is_active')->default(true);
             $table->timestamps();

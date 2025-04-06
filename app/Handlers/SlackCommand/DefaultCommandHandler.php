@@ -3,17 +3,18 @@
 namespace App\Handlers\SlackCommand;
 
 use App\Jobs\ProcessExpensifyCategories;
+use App\Jobs\ProcessExpensifyExpenses;
 use App\Models\ExpensifyLogin;
 use Illuminate\Support\Facades\Log;
 use Spatie\SlashCommand\Handlers\BaseHandler;
 use Spatie\SlashCommand\Request;
 use Spatie\SlashCommand\Response;
 
-class CategoriesCommandHandler extends BaseHandler
+class DefaultCommandHandler extends BaseHandler
 {
     public function canHandle(Request $request): bool
     {
-        return $request->text === 'categories';
+        return $request->text === '';
     }
 
     public function handle(Request $request): Response
@@ -25,8 +26,8 @@ class CategoriesCommandHandler extends BaseHandler
             return $this->respondToSlack("🙅‍♂️ You need to connect your Expensify account first. Use `/allowances login` to do so.");
         }
 
-        ProcessExpensifyCategories::dispatch($login, $request);
+        ProcessExpensifyExpenses::dispatch($login, $request);
 
-        return $this->respondToSlack("🔄 Fetching your Expensify categories... This might take a few moments.");
+        return $this->respondToSlack("🤓 Crunching your Expensify stuff... This might take a few moments.");
     }
 }

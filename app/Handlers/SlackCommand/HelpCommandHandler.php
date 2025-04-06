@@ -2,9 +2,12 @@
 
 namespace App\Handlers\SlackCommand;
 
+use Spatie\SlashCommand\Request;
+use Spatie\SlashCommand\Response;
+
 class HelpCommandHandler extends AbstractCommandHandler
 {
-    public function handle(string $request, array $params): array
+    public function handle(Request $request): Response
     {
         $help = "🤖 *Allo Bot Commands*\n\n";
         $help .= "*Login to Expensify*\n";
@@ -15,17 +18,15 @@ class HelpCommandHandler extends AbstractCommandHandler
         $help .= "`/allowances categories`\n";
         $help .= "Show available Expensify categories\n\n";
 
-        $help .= "*Map Category*\n";
-        $help .= "`/allowances map <expensify_category> <monthly_limit> [description]`\n";
-        $help .= "Map an Expensify category to an allowance\n\n";
-
         $help .= "*Check Status*\n";
         $help .= "`/allowances`\n";
         $help .= "Show your current allowance status";
 
-        return [
-            'response_type' => 'ephemeral',
-            'text' => $help,
-        ];
+        return $this->respondToSlack($help);
+    }
+
+    public function canHandle(Request $request): bool
+    {
+        return $request->text === 'help';
     }
 }

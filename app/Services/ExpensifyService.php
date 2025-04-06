@@ -6,6 +6,7 @@ use App\Models\ExpensifyLogin;
 use Exception;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ClientException;
+use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
@@ -86,45 +87,6 @@ class ExpensifyService
         }
     }
 
-    public function getCategorySpentAmount(ExpensifyLogin $login, string $category, Carbon $startDate, Carbon $endDate): float
-    {
-        $response = $this->client->post(self::API_URL, [
-            'form_params' => [
-                'requestJobDescription' => json_encode([
-                    'type' => 'file',
-                    'credentials' => [
-                        'partnerUserID' => $login->partner_id,
-                        'partnerUserSecret' => $login->password,
-                    ],
-                    'onReceive' => [
-                        'immediateResponse' => ['returnRandomFileName']
-                    ],
-                    'inputSettings' => [
-                        'type' => 'combinedReportData',
-                        'filters' => [
-                            'startDate' => $startDate->format('Y-m-d'),
-                            'endDate' => $endDate->format('Y-m-d'),
-                            'category' => $category
-                        ]
-                    ],
-                    'outputSettings' => [
-                        'fileExtension' => 'csv'
-                    ]
-                ]),
-            ],
-        ]);
-
-        $data = json_decode($response->getBody()->getContents(), true);
-
-        if (!isset($data['fileName'])) {
-            return 0;
-        }
-
-        $fileData = $this->downloadAndParseFile($data['fileName'], $login);
-
-        return collect($fileData)->sum('amount');
-    }
-
     public function validateCredentials(string $partnerId, string $password): bool
     {
         try {
@@ -158,7 +120,6 @@ class ExpensifyService
     public function getAvailableCategories(ExpensifyLogin $login): array
     {
         try {
-            // Use the report exporter to get a list of all categories
             $response = $this->client->post(self::API_URL, [
                 'form_params' => [
                     'requestJobDescription' => json_encode([
@@ -218,6 +179,92 @@ ${expense.category}<#lt>
                 'error' => $e->getMessage(),
                 'partner_id' => $login->partner_id
             ]);
+            return [];
+        }
+    }
+
+    /**
+     * Fetches all expenses within a date range and returns amounts summed by category.
+     *
+     * @param ExpensifyLogin $login
+     * @return array<string, float> Associative array mapping category name to total spent amount.
+     * @throws GuzzleException
+     */
+    public function getSpentAmountsByCategories(ExpensifyLogin $login): array
+    {
+        try {
+            $response = $this->client->post(self::API_URL, [
+                'form_params' => [
+                    'requestJobDescription' => json_encode([
+                        'type' => 'file',
+                        'credentials' => [
+                            'partnerUserID' => $login->partner_id,
+                            'partnerUserSecret' => $login->password,
+                        ],
+                        'onReceive' => [
+                            'immediateResponse' => ['returnRandomFileName']
+                        ],
+                        'inputSettings' => [
+                            'type' => 'combinedReportData',
+                            'filters' => [
+                                'startDate' => Carbon::now()->startOfYear()->format('Y-m-d'),
+                                'endDate' => Carbon::today()->format('Y-m-d'),
+                                // No specific category filter - get all
+                            ]
+                        ],
+                        'outputSettings' => [
+                            'fileExtension' => 'csv'
+                            // Assuming default CSV includes 'Category' and 'Amount'
+                            // If not, a template might be needed here like in getAvailableCategories
+                        ]
+                    ]),
+                ],
+            ]);
+
+            $bodyContents = $response->getBody()->getContents();
+            $data = json_decode($bodyContents, true);
+
+            $filename = $response->getBody()->getContents();
+
+            if (empty($filename)) {
+                Log::error('Empty filename returned from Expensify API', [
+                    'partner_id' => $login->partner_id
+                ]);
+                return [];
+            }
+
+            // Add a small delay similar to getAvailableCategories
+            // Might need adjustment based on typical report generation time
+            sleep(2);
+
+            $fileData = $this->downloadAndParseFile($filename, $login);
+
+            if (empty($fileData)) {
+                return []; // downloadAndParseFile logs errors
+            }
+
+            // Group by category and sum amounts
+            return collect($fileData)
+                ->groupBy('Category') // Use the actual header name from the CSV
+                ->map(function ($items, $category) {
+                     // Ensure 'Amount' is treated as numeric
+                    return $items->sum(fn($item) => (float) ($item['Amount'] ?? 0));
+                })
+                ->all();
+
+        } catch (ClientException $e) {
+            Log::error('Expensify API client exception getting spent amounts', [
+                'partner_id' => $login->partner_id,
+                'status_code' => $e->getResponse() ? $e->getResponse()->getStatusCode() : 'N/A',
+                'error' => $e->getMessage()
+            ]);
+            return [];
+        } catch (\Exception $e) {
+            Log::error('General exception getting spent amounts from Expensify', [
+                'error' => $e->getMessage(),
+                'partner_id' => $login->partner_id
+            ]);
+            report($e);
             return [];
         }
     }
