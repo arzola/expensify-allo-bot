@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Models\ExpensifyLogin;
+use Exception;
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\ClientException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
@@ -140,13 +142,15 @@ class ExpensifyService
                     ]),
                 ],
             ]);
-
-            $data = json_decode($response->getBody()->getContents(), true);
-
-            // Check if we got a valid response without errors
-            return !isset($data['error']);
-        } catch (\Exception $e) {
-            report($e);
+            if ($response->getStatusCode() >= 200 && $response->getStatusCode() < 300) {
+                $bodyContents = $response->getBody()->getContents();
+                $data = json_decode($bodyContents, true);
+                if (isset($data['responseCode']) && $data['responseCode'] == 200) {
+                    return true;
+                }
+            }
+            return false;
+        } catch (Exception $e) {
             return false;
         }
     }

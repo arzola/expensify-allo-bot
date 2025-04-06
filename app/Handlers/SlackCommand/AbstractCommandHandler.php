@@ -28,13 +28,10 @@ abstract class AbstractCommandHandler extends BaseHandler
      * Format a success response
      *
      * @param string $message Success message
-     * @return array
+     * @return Response
      */
-    protected function successResponse(string $message): array
+    protected function successResponse(string $message): Response
     {
-        return [
-            'response_type' => 'ephemeral',
-            'text' => "✅ {$message}",
-        ];
+        return $this->respondToSlack($message);
     }
 }

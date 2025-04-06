@@ -2,8 +2,6 @@
 
 namespace App\Handlers\SlackCommand;
 
-use App\Services\ExpensifyService;
-use App\Services\SlackResponseFormatter;
 use Spatie\SlashCommand\Handlers\BaseHandler;
 use Spatie\SlashCommand\Request;
 use Spatie\SlashCommand\Response;
