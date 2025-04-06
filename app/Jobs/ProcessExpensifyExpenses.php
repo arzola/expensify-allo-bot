@@ -10,7 +10,6 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Log;
 use Spatie\SlashCommand\Jobs\SlashCommandResponseJob;
 use Spatie\SlashCommand\Request;
 
@@ -42,9 +41,7 @@ class ProcessExpensifyExpenses extends SlashCommandResponseJob
         }
 
         // 2. Fetch Spent Amounts from Expensify
-        Log::info('Fetching spent amounts from Expensify for balance calculation', ['slack_user_id' => $this->request->userId]);
         $spentAmounts = $expensifyService->getSpentAmountsByCategories($this->login);
-        Log::info('Received spent amounts', ['slack_user_id' => $this->request->userId, 'count' => count($spentAmounts)]);
 
         // 3. Calculate Balances and Format Message
         $messageLines = ["📊 Here are your current allowance balances:"];
@@ -76,7 +73,6 @@ class ProcessExpensifyExpenses extends SlashCommandResponseJob
         $message = implode("\n", $messageLines);
 
         // 4. Send Response to Slack
-        Log::info('Sending balance report to Slack', ['slack_user_id' => $this->request->userId]);
         $this->respondToSlack($message)->send();
     }
 }

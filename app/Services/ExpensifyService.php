@@ -9,7 +9,6 @@ use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Log;
 
 class ExpensifyService
 {
@@ -44,14 +43,6 @@ class ExpensifyService
 
             $content = $response->getBody()->getContents();
 
-            Log::info('Downloaded file content', [
-                'filename' => $filename,
-                'partner_id' => $login->partner_id,
-                'content_length' => strlen($content)
-            ]);
-
-            Log::info($content);
-
             // Parse CSV content
             // Revert back to explode for line splitting
             $lines = explode("\n", $content);
@@ -59,10 +50,6 @@ class ExpensifyService
             // Check if headers exist before trying to parse
             // Revert empty check logic
             if (count($lines) === 0 || empty(trim($lines[0]))) {
-                Log::warning('Downloaded file is empty or has no headers', [ // Reverted log message
-                    'filename' => $filename,
-                    'partner_id' => $login->partner_id
-                ]);
                 return [];
             }
             $headers = str_getcsv(array_shift($lines));
@@ -74,13 +61,6 @@ class ExpensifyService
                 $values = str_getcsv($line);
                 // Add a check for empty lines or lines with incorrect column count
                 if (count($values) !== count($headers)) {
-                    Log::warning('Skipping line due to mismatched column count', [
-                        'filename' => $filename,
-                        'header_count' => count($headers),
-                        'value_count' => count($values),
-                        'line_content' => $line, // Log the problematic line
-                        'partner_id' => $login->partner_id
-                    ]);
                     continue;
                 }
 
@@ -89,11 +69,6 @@ class ExpensifyService
 
             return $data;
         } catch (\Exception $e) {
-            Log::error('Error downloading and parsing file from Expensify', [
-                'error' => $e->getMessage(),
-                'filename' => $filename,
-                'partner_id' => $login->partner_id
-            ]);
             return [];
         }
     }
@@ -166,9 +141,6 @@ ${expense.category}<#lt>
             $filename = $response->getBody()->getContents();
 
             if (empty($filename)) {
-                Log::error('Empty filename returned from Expensify API', [
-                    'partner_id' => $login->partner_id
-                ]);
                 return [];
             }
 
@@ -186,10 +158,6 @@ ${expense.category}<#lt>
                 ->values()
                 ->all();
         } catch (\Exception $e) {
-            Log::error('Exception when fetching Expensify categories', [
-                'error' => $e->getMessage(),
-                'partner_id' => $login->partner_id
-            ]);
             return [];
         }
     }
@@ -203,8 +171,6 @@ ${expense.category}<#lt>
      */
     public function getSpentAmountsByCategories(ExpensifyLogin $login): array
     {
-        Log::info('Starting getSpentAmountsByCategories', ['partner_id' => $login->partner_id]);
-
         try {
             $response = $this->client->post(self::API_URL, [
                 'form_params' => [
@@ -239,12 +205,8 @@ ${expense.category},${expense.convertedAmount}<#lt>
             ]);
 
             $filename = $response->getBody()->getContents();
-            Log::info('Received filename from Expensify', ['filename' => $filename, 'partner_id' => $login->partner_id]);
 
             if (empty($filename)) {
-                Log::error('Empty filename returned from Expensify API for spent amounts', [
-                    'partner_id' => $login->partner_id
-                ]);
                 return [];
             }
 
@@ -252,18 +214,14 @@ ${expense.category},${expense.convertedAmount}<#lt>
             // Might need adjustment based on typical report generation time
             sleep(2);
 
-            Log::info('Attempting to download and parse file', ['filename' => $filename, 'partner_id' => $login->partner_id]);
             $fileData = $this->downloadAndParseFile($filename, $login);
 
             if (empty($fileData)) {
-                Log::warning('No data parsed from file for spent amounts', ['filename' => $filename, 'partner_id' => $login->partner_id]);
                 return []; // downloadAndParseFile logs errors internally
             }
 
-            Log::info('Successfully parsed file data', ['filename' => $filename, 'row_count' => count($fileData), 'partner_id' => $login->partner_id]);
-
             // Group by category and sum amounts
-            $categoryTotals = collect($fileData)
+            return collect($fileData)
                 ->groupBy('Category') // Use the actual header name from the CSV template
                 ->map(function ($items, $category) {
                      // Ensure 'Amount' is treated as numeric, using the header from the template
@@ -271,21 +229,9 @@ ${expense.category},${expense.convertedAmount}<#lt>
                 })
                 ->all();
 
-            Log::info('Calculated category totals', ['partner_id' => $login->partner_id, 'category_count' => count($categoryTotals)]);
-            return $categoryTotals;
-
         } catch (ClientException $e) {
-            Log::error('Expensify API client exception getting spent amounts', [
-                'partner_id' => $login->partner_id,
-                'status_code' => $e->getResponse() ? $e->getResponse()->getStatusCode() : 'N/A',
-                'error' => $e->getMessage()
-            ]);
             return [];
         } catch (\Exception $e) {
-            Log::error('General exception getting spent amounts from Expensify', [
-                'error' => $e->getMessage(),
-                'partner_id' => $login->partner_id
-            ]);
             report($e);
             return [];
         }
