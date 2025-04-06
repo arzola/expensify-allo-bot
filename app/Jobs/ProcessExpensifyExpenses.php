@@ -44,7 +44,7 @@ class ProcessExpensifyExpenses extends SlashCommandResponseJob
         $spentAmounts = $expensifyService->getSpentAmountsByCategories($this->login);
 
         // 3. Calculate Balances and Format Message
-        $messageLines = ["📊 Here are your current allowance balances:"];
+        $messageLines = ["📊 Your Current Allowance Balances:"];
         $totalRemaining = 0;
         $totalAllowance = 0;
 
@@ -62,13 +62,13 @@ class ProcessExpensifyExpenses extends SlashCommandResponseJob
             $formattedSpent = number_format($spentAmount / 100, 2);
             $formattedRemaining = number_format($remainingAmount / 100, 2);
 
-            $messageLines[] = "• {$icon}*{$categoryName}:* Used *\$ {$formattedSpent}* / *\$ {$formattedAllowance}*, 💵 *\$ {$formattedRemaining}* left.";
+            $messageLines[] = "• {$icon}*{$categoryName}:* Used *\$ {$formattedSpent}* / *\$ {$formattedAllowance}*,  Left: *\$ {$formattedRemaining}*";
         }
 
         // Add totals
         $formattedTotalAllowance = number_format($totalAllowance / 100, 2);
         $formattedTotalRemaining = number_format($totalRemaining / 100, 2);
-        $messageLines[] = "\nTotal Balance Remaining: *\${$formattedTotalRemaining}* / \${$formattedTotalAllowance}";
+        $messageLines[] = "\nTotal Remaining: *\${$formattedTotalRemaining}* of \${$formattedTotalAllowance}";
 
         $message = implode("\n", $messageLines);
 
