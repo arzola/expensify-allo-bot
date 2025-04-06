@@ -18,8 +18,8 @@ class HelpCommandHandler extends AbstractCommandHandler
         $help .= "`/allowances categories`\n";
         $help .= "Show available Expensify categories\n\n";
 
-        $help .= "*Check Status*\n";
-        $help .= "`/allowances`\n";
+        $help .= "*Check Balance*\n";
+        $help .= "`/allowances balance`\n";
         $help .= "Show your current allowance status";
 
         return $this->respondToSlack($help);
