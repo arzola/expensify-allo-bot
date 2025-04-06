@@ -17,7 +17,7 @@ abstract class AbstractCommandHandler extends BaseHandler
      * Format an error response
      *
      * @param string $message Error message
-     * @return array
+     * @return Response
      */
     protected function errorResponse(string $message): Response
     {
@@ -37,4 +37,4 @@ abstract class AbstractCommandHandler extends BaseHandler
             'text' => "✅ {$message}",
         ];
     }
-} 
+}

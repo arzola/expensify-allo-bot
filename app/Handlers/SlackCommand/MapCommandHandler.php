@@ -7,13 +7,13 @@ use App\Models\ExpensifyLogin;
 
 class MapCommandHandler extends AbstractCommandHandler
 {
-    public function handle(string $userId, array $params): array
+    public function handle(string $request, array $params): array
     {
         if (count($params) < 2) {
             return $this->errorResponse('Invalid format. Use: `/allowances map <expensify_category> <monthly_limit> [description]`');
         }
 
-        $login = ExpensifyLogin::where('slack_user_id', $userId)->first();
+        $login = ExpensifyLogin::where('slack_user_id', $request)->first();
 
         if (!$login) {
             return $this->errorResponse('Please set up your Expensify credentials first using `/allowances login <partner_id> <password>`');
@@ -45,7 +45,7 @@ class MapCommandHandler extends AbstractCommandHandler
         $response = "Category mapped successfully!\n\n";
         $response .= "*{$expensifyCategory}*\n";
         $response .= "💰 Monthly Limit: \${$monthlyLimit}";
-        
+
         if ($description) {
             $response .= "\n📝 Description: {$description}";
         }
@@ -55,4 +55,4 @@ class MapCommandHandler extends AbstractCommandHandler
             'text' => $response,
         ];
     }
-} 
+}

@@ -24,36 +24,64 @@ class ExpensifyService
 
     private function downloadAndParseFile(string $filename, ExpensifyLogin $login): array
     {
-        $response = $this->client->post(self::DOWNLOAD_URL, [
-            'form_params' => [
-                'requestJobDescription' => json_encode([
-                    'type' => 'download',
-                    'credentials' => [
-                        'partnerUserID' => $login->partner_id,
-                        'partnerUserSecret' => $login->password,
-                    ],
-                    'fileName' => $filename
-                ]),
-            ],
-        ]);
+        try {
+            // Use the main API_URL for the download request as well
+            $response = $this->client->post(self::API_URL, [
+                'form_params' => [
+                    'requestJobDescription' => json_encode([
+                        'type' => 'download',
+                        'credentials' => [
+                            'partnerUserID' => $login->partner_id,
+                            'partnerUserSecret' => $login->password,
+                        ],
+                        'fileName' => $filename
+                    ]),
+                ],
+            ]);
 
-        $content = $response->getBody()->getContents();
-        
-        // Parse CSV content
-        $lines = explode("\n", $content);
-        $headers = str_getcsv(array_shift($lines));
-        
-        $data = [];
-        foreach ($lines as $line) {
-            if (empty(trim($line))) continue;
-            
-            $values = str_getcsv($line);
-            if (count($values) !== count($headers)) continue;
-            
-            $data[] = array_combine($headers, $values);
+            $content = $response->getBody()->getContents();
+
+            // Parse CSV content
+            $lines = explode("\n", $content);
+            // Check if headers exist before trying to parse
+            if (count($lines) === 0 || empty(trim($lines[0]))) {
+                Log::warning('Downloaded file is empty or has no headers', [
+                    'filename' => $filename,
+                    'partner_id' => $login->partner_id
+                ]);
+                return [];
+            }
+            $headers = str_getcsv(array_shift($lines));
+
+            $data = [];
+            foreach ($lines as $line) {
+                if (empty(trim($line))) continue;
+
+                $values = str_getcsv($line);
+                // Add a check for empty lines or lines with incorrect column count
+                if (count($values) !== count($headers)) {
+                    Log::warning('Skipping line due to mismatched column count', [
+                        'filename' => $filename,
+                        'header_count' => count($headers),
+                        'value_count' => count($values),
+                        'line_content' => $line, // Log the problematic line
+                        'partner_id' => $login->partner_id
+                    ]);
+                    continue;
+                }
+
+                $data[] = array_combine($headers, $values);
+            }
+
+            return $data;
+        } catch (\Exception $e) {
+            Log::error('Error downloading and parsing file from Expensify', [
+                'error' => $e->getMessage(),
+                'filename' => $filename,
+                'partner_id' => $login->partner_id
+            ]);
+            return [];
         }
-        
-        return $data;
     }
 
     public function getCategorySpentAmount(ExpensifyLogin $login, string $category, Carbon $startDate, Carbon $endDate): float
@@ -85,13 +113,13 @@ class ExpensifyService
         ]);
 
         $data = json_decode($response->getBody()->getContents(), true);
-        
+
         if (!isset($data['fileName'])) {
             return 0;
         }
 
         $fileData = $this->downloadAndParseFile($data['fileName'], $login);
-        
+
         return collect($fileData)->sum('amount');
     }
 
@@ -114,7 +142,7 @@ class ExpensifyService
             ]);
 
             $data = json_decode($response->getBody()->getContents(), true);
-            
+
             // Check if we got a valid response without errors
             return !isset($data['error']);
         } catch (\Exception $e) {
@@ -125,68 +153,68 @@ class ExpensifyService
 
     public function getAvailableCategories(ExpensifyLogin $login): array
     {
-        $response = $this->client->post(self::API_URL, [
-            'form_params' => [
-                'requestJobDescription' => json_encode([
-                    'type' => 'file',
-                    'credentials' => [
-                        'partnerUserID' => $login->partner_id,
-                        'partnerUserSecret' => $login->password,
-                    ],
-                    'onReceive' => [
-                        'immediateResponse' => ['returnRandomFileName']
-                    ],
-                    'inputSettings' => [
-                        'type' => 'combinedReportData',
-                        'filters' => [
-                            'startDate' => now()->subYear()->format('Y-m-d'),
-                            'endDate' => now()->format('Y-m-d'),
-                            'limit' => '100'
+        try {
+            // Use the report exporter to get a list of all categories
+            $response = $this->client->post(self::API_URL, [
+                'form_params' => [
+                    'requestJobDescription' => json_encode([
+                        'type' => 'file',
+                        'credentials' => [
+                            'partnerUserID' => $login->partner_id,
+                            'partnerUserSecret' => $login->password,
+                        ],
+                        'onReceive' => [
+                            'immediateResponse' => ['returnRandomFileName']
+                        ],
+                        'inputSettings' => [
+                            'type' => 'combinedReportData',
+                            'filters' => [
+                                'startDate' => now()->subYear()->format('Y-m-d'),
+                                'endDate' => now()->format('Y-m-d'),
+                                'limit' => '100'
+                            ]
+                        ],
+                        'outputSettings' => [
+                            'fileExtension' => 'csv'
                         ]
-                    ],
-                    'outputSettings' => [
-                        'fileExtension' => 'csv'
-                    ]
-                ]),
-                'template' => 'Category,Amount\n${expense.category},${expense.amount}\n'
-            ],
-        ]);
+                    ]),
+                    'template' => '<#if addHeader == true>Category<#lt></#if>
+<#list reports as report>
+<#list report.transactionList as expense>
+${expense.category}<#lt>
+</#list>
+</#list>'
+                ],
+            ]);
 
-        $filename = $response->getBody()->getContents();
-        
-        // Download the actual CSV file
-        $fileResponse = $this->client->post(self::API_URL, [
-            'form_params' => [
-                'requestJobDescription' => json_encode([
-                    'type' => 'download',
-                    'credentials' => [
-                        'partnerUserID' => $login->partner_id,
-                        'partnerUserSecret' => $login->password,
-                    ],
-                    'fileName' => $filename
-                ]),
-            ],
-        ]);
+            $filename = $response->getBody()->getContents();
 
-        $csvContent = $fileResponse->getBody()->getContents();
-        
-        // Parse CSV content
-        $lines = explode("\n", $csvContent);
-        $headers = str_getcsv(array_shift($lines)); // Remove and parse header row
-        
-        $categories = [];
-        foreach ($lines as $line) {
-            if (empty(trim($line))) continue;
-            
-            $values = str_getcsv($line);
-            if (count($values) !== count($headers)) continue;
-            
-            $row = array_combine($headers, $values);
-            if (isset($row['Category'])) {
-                $categories[] = $row['Category'];
+            if (empty($filename)) {
+                Log::error('Empty filename returned from Expensify API', [
+                    'partner_id' => $login->partner_id
+                ]);
+                return [];
             }
+
+            // Add a small delay to allow the file to be generated
+            sleep(2);
+
+            // Use the existing downloadAndParseFile method to get the data
+            $fileData = $this->downloadAndParseFile($filename, $login);
+
+            // Extract unique categories
+            return collect($fileData)
+                ->pluck('Category')
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+        } catch (\Exception $e) {
+            Log::error('Exception when fetching Expensify categories', [
+                'error' => $e->getMessage(),
+                'partner_id' => $login->partner_id
+            ]);
+            return [];
         }
-        
-        return array_unique($categories);
     }
 }

@@ -5,12 +5,12 @@ namespace App\Jobs;
 use App\Models\ExpensifyLogin;
 use App\Services\ExpensifyService;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Spatie\SlashCommand\Jobs\SlashCommandResponseJob;
 use Spatie\SlashCommand\Request;
+use Illuminate\Support\Facades\Log;
 
 class ProcessExpensifyCategories extends SlashCommandResponseJob
 {
@@ -24,11 +24,12 @@ class ProcessExpensifyCategories extends SlashCommandResponseJob
         $this->request = $request;
     }
 
-    public function handle()
+    public function handle(): void
     {
         $expensifyService = app(ExpensifyService::class);
+
         $categories = $expensifyService->getAvailableCategories($this->login);
-        
+
         if (empty($categories)) {
             $this->respondToSlack("No categories found for your Expensify account.")->send();
             return;
@@ -41,4 +42,4 @@ class ProcessExpensifyCategories extends SlashCommandResponseJob
 
         $this->respondToSlack($message)->send();
     }
-} 
+}

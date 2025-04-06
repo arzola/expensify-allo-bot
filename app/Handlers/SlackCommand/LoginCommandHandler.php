@@ -4,10 +4,11 @@ namespace App\Handlers\SlackCommand;
 
 use App\Models\ExpensifyLogin;
 use Illuminate\Support\Str;
+use Spatie\SlashCommand\Request;
 
 class LoginCommandHandler extends AbstractCommandHandler
 {
-    public function handle(string $userId, array $params): array
+    public function handle(string|Request $request, array $params): array
     {
         if (count($params) < 2) {
             return $this->errorResponse('Invalid format. Use: `/allowances login <partner_id> <password>`');
@@ -21,7 +22,7 @@ class LoginCommandHandler extends AbstractCommandHandler
         }
 
         // Check if user is already logged in
-        if (ExpensifyLogin::isLoggedIn($userId)) {
+        if (ExpensifyLogin::isLoggedIn($request)) {
             return $this->errorResponse('You are already logged in. Use `/allowances logout` to remove your current credentials.');
         }
 
@@ -31,7 +32,7 @@ class LoginCommandHandler extends AbstractCommandHandler
 
         try {
             ExpensifyLogin::updateOrCreate(
-                ['slack_user_id' => $userId],
+                ['slack_user_id' => $request],
                 [
                     'partner_id' => $partnerId,
                     'password' => $password,
@@ -44,4 +45,9 @@ class LoginCommandHandler extends AbstractCommandHandler
             return $this->errorResponse('An error occurred while saving your credentials. Please try again later.');
         }
     }
-} 
+
+    public function canHandle(Request $request): bool
+    {
+        return Str::startsWith($request->text, 'login');
+    }
+}
