@@ -44,11 +44,22 @@ class ExpensifyService
 
             $content = $response->getBody()->getContents();
 
+            Log::info('Downloaded file content', [
+                'filename' => $filename,
+                'partner_id' => $login->partner_id,
+                'content_length' => strlen($content)
+            ]);
+
+            Log::info($content);
+
             // Parse CSV content
+            // Revert back to explode for line splitting
             $lines = explode("\n", $content);
+
             // Check if headers exist before trying to parse
+            // Revert empty check logic
             if (count($lines) === 0 || empty(trim($lines[0]))) {
-                Log::warning('Downloaded file is empty or has no headers', [
+                Log::warning('Downloaded file is empty or has no headers', [ // Reverted log message
                     'filename' => $filename,
                     'partner_id' => $login->partner_id
                 ]);
@@ -192,6 +203,8 @@ ${expense.category}<#lt>
      */
     public function getSpentAmountsByCategories(ExpensifyLogin $login): array
     {
+        Log::info('Starting getSpentAmountsByCategories', ['partner_id' => $login->partner_id]);
+
         try {
             $response = $this->client->post(self::API_URL, [
                 'form_params' => [
@@ -214,20 +227,22 @@ ${expense.category}<#lt>
                         ],
                         'outputSettings' => [
                             'fileExtension' => 'csv'
-                            // Assuming default CSV includes 'Category' and 'Amount'
-                            // If not, a template might be needed here like in getAvailableCategories
                         ]
                     ]),
+                    'template' => '<#if addHeader == true>Category,Amount<#lt></#if>
+<#list reports as report>
+<#list report.transactionList as expense>
+${expense.category},${expense.convertedAmount}<#lt>
+</#list>
+</#list>'
                 ],
             ]);
 
-            $bodyContents = $response->getBody()->getContents();
-            $data = json_decode($bodyContents, true);
-
             $filename = $response->getBody()->getContents();
+            Log::info('Received filename from Expensify', ['filename' => $filename, 'partner_id' => $login->partner_id]);
 
             if (empty($filename)) {
-                Log::error('Empty filename returned from Expensify API', [
+                Log::error('Empty filename returned from Expensify API for spent amounts', [
                     'partner_id' => $login->partner_id
                 ]);
                 return [];
@@ -237,20 +252,27 @@ ${expense.category}<#lt>
             // Might need adjustment based on typical report generation time
             sleep(2);
 
+            Log::info('Attempting to download and parse file', ['filename' => $filename, 'partner_id' => $login->partner_id]);
             $fileData = $this->downloadAndParseFile($filename, $login);
 
             if (empty($fileData)) {
-                return []; // downloadAndParseFile logs errors
+                Log::warning('No data parsed from file for spent amounts', ['filename' => $filename, 'partner_id' => $login->partner_id]);
+                return []; // downloadAndParseFile logs errors internally
             }
 
+            Log::info('Successfully parsed file data', ['filename' => $filename, 'row_count' => count($fileData), 'partner_id' => $login->partner_id]);
+
             // Group by category and sum amounts
-            return collect($fileData)
-                ->groupBy('Category') // Use the actual header name from the CSV
+            $categoryTotals = collect($fileData)
+                ->groupBy('Category') // Use the actual header name from the CSV template
                 ->map(function ($items, $category) {
-                     // Ensure 'Amount' is treated as numeric
+                     // Ensure 'Amount' is treated as numeric, using the header from the template
                     return $items->sum(fn($item) => (float) ($item['Amount'] ?? 0));
                 })
                 ->all();
+
+            Log::info('Calculated category totals', ['partner_id' => $login->partner_id, 'category_count' => count($categoryTotals)]);
+            return $categoryTotals;
 
         } catch (ClientException $e) {
             Log::error('Expensify API client exception getting spent amounts', [
