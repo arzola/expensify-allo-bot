@@ -37,11 +37,6 @@ class ExpensifyLogin extends Model
         );
     }
 
-    public static function findBySlackUserId(string $slackUserId): ?self
-    {
-        return static::where('slack_user_id', $slackUserId)->first();
-    }
-
     public static function isLoggedIn(string $slackUserId): bool
     {
         return static::where('slack_user_id', $slackUserId)->exists();

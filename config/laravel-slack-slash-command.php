@@ -1,5 +1,7 @@
 <?php
 
+use App\Handlers\SlackCommand\AllowancesCommandHandler;
+
 return [
 
     /*
@@ -31,7 +33,7 @@ return [
      */
     'handlers' => [
         // Our allowances command handler
-        \App\Handlers\SlackCommand\AllowancesCommandHandler::class,
+        AllowancesCommandHandler::class,
 
         //this handler will display instructions on how to use the various commands.
         Spatie\SlashCommand\Handlers\Help::class,

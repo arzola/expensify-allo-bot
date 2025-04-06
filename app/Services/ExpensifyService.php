@@ -14,7 +14,6 @@ class ExpensifyService
 {
     private Client $client;
     private const API_URL = 'https://integrations.expensify.com/Integration-Server/ExpensifyIntegrations';
-    private const DOWNLOAD_URL = 'https://integrations.expensify.com/Integration-Server/Download';
 
     /**
      * Create a new class instance.
@@ -145,7 +144,7 @@ ${expense.category}<#lt>
             }
 
             // Add a small delay to allow the file to be generated
-            sleep(2);
+            sleep(config('services.slack.delay'));
 
             // Use the existing downloadAndParseFile method to get the data
             $fileData = $this->downloadAndParseFile($filename, $login);
@@ -210,9 +209,8 @@ ${expense.category},${expense.convertedAmount}<#lt>
                 return [];
             }
 
-            // Add a small delay similar to getAvailableCategories
             // Might need adjustment based on typical report generation time
-            sleep(2);
+            sleep(config('services.slack.delay'));
 
             $fileData = $this->downloadAndParseFile($filename, $login);
 

@@ -8,14 +8,13 @@ class AllowanceCategory extends Model
 {
     protected $fillable = [
         'name',
-        'expensify_category',
-        'monthly_limit',
+        'annual_limit',
         'description',
         'is_active',
     ];
 
     protected $casts = [
-        'monthly_limit' => 'decimal:2',
+        'annual_limit' => 'decimal:2',
         'is_active' => 'boolean',
     ];
 }
