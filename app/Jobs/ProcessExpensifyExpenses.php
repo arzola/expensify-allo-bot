@@ -62,7 +62,7 @@ class ProcessExpensifyExpenses extends SlashCommandResponseJob
             $formattedSpent = number_format($spentAmount / 100, 2);
             $formattedRemaining = number_format($remainingAmount / 100, 2);
 
-            $messageLines[] = "• {$icon}*{$categoryName}:* Used *\${$formattedSpent}* / *\${$formattedAllowance}*, you have only: (*\${$formattedRemaining}*) left.";
+            $messageLines[] = "• {$icon}*{$categoryName}:* Used *\$ {$formattedSpent}* / *\$ {$formattedAllowance}*, 💵 *\$ {$formattedRemaining}* left.";
         }
 
         // Add totals

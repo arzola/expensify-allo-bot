@@ -37,8 +37,8 @@ class AllowancesCommandHandler extends BaseHandler
         return match($subcommand) {
             'login' => new LoginCommandHandler($this->request),
             'categories' => new CategoriesCommandHandler($this->request),
-            'help' => new HelpCommandHandler($this->request),
-            default => new DefaultCommandHandler($this->request)
+            'balance' => new DefaultCommandHandler($this->request),
+            default => new HelpCommandHandler($this->request)
         };
     }
 }

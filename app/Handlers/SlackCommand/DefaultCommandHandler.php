@@ -28,6 +28,6 @@ class DefaultCommandHandler extends BaseHandler
 
         ProcessExpensifyExpenses::dispatch($login, $request);
 
-        return $this->respondToSlack("🤓 Crunching your Expensify stuff... This might take a few moments.");
+        return $this->respondToSlack("🤓 Calculating your Allowances balance..., please give me a moment.");
     }
 }
